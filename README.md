@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # bussv1
 
 A new Flutter project.
