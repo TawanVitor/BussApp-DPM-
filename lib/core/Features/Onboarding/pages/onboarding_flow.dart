@@ -1,5 +1,6 @@
+import 'package:bussv1/core/Routes/Pages/route_list_page.dart';
 import 'package:flutter/material.dart';
-import 'route_list_page.dart';
+
 
 class OnboardingFlow extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -97,6 +98,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 }
 
+// As classes auxiliares _OnboardingPage, _TermsOfUsePage, _LGPDPage
+// permanecem aqui para manter a coesão do Onboarding
 class _OnboardingPage extends StatelessWidget {
   final String title;
   final String description;
@@ -224,31 +227,95 @@ class _TermsOfUsePageState extends State<_TermsOfUsePage> {
   final String termsText = '''
 Termos de Uso do Aplicativo Buss
 
-1. Aceitação dos Termos  
-Ao utilizar o aplicativo Buss, o usuário declara ter lido, compreendido e aceitado integralmente estes Termos de Uso. Caso não concorde com qualquer condição aqui descrita, o usuário não deverá utilizar o aplicativo.
+. Descrição do Serviço
+O Buss é um aplicativo móvel desenvolvido para auxiliar estudantes e usuários de transporte público a gerenciar suas rotas de ônibus. O aplicativo permite:
+- Cadastrar rotas personalizadas de ônibus
+- Registrar horários de partida e chegada
+- Salvar pontos de parada
+- Organizar trajetos frequentes
+- Personalizar nomes e descrições das rotas
 
-2. Finalidade do Aplicativo  
-O Buss tem como objetivo auxiliar estudantes e demais usuários de transporte público a registrar, organizar e visualizar suas rotas de ônibus, horários e paradas.  
-O aplicativo não coleta dados pessoais sensíveis, sendo as informações cadastradas exclusivamente aquelas fornecidas voluntariamente pelo usuário.
+2. Uso do Aplicativo
+2.1. O aplicativo é destinado ao uso pessoal e não comercial.
+2.2. Todas as informações cadastradas são armazenadas apenas localmente no dispositivo do usuário.
+2.3. O usuário é responsável pela precisão dos dados inseridos.
+2.4. O aplicativo não realiza rastreamento em tempo real ou fornece dados em tempo real do transporte público.
 
-3. Responsabilidade do Usuário  
-O usuário é o único responsável pelas informações cadastradas, incluindo nomes de rotas, horários e locais.  
-É proibido utilizar o aplicativo para armazenar ou divulgar conteúdo ofensivo, ilegal, difamatório ou que viole direitos de terceiros.
+3. Privacidade e Proteção de Dados (LGPD)
+Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018):
 
-4. Privacidade e Proteção de Dados  
-O Buss respeita a privacidade do usuário e segue as diretrizes da Lei Geral de Proteção de Dados (Lei nº 13.709/2018).  
-Nenhum dado é compartilhado com terceiros. As informações permanecem armazenadas apenas localmente no dispositivo do usuário.
+3.1. Coleta de Dados
+- O aplicativo não coleta dados pessoais sensíveis
+- Todas as informações são fornecidas voluntariamente pelo usuário
+- Os dados são armazenados exclusivamente no dispositivo do usuário
+- Não há compartilhamento de dados com terceiros
 
-5. Atualizações e Modificações  
-Os desenvolvedores poderão atualizar o aplicativo, modificar funcionalidades ou alterar estes Termos de Uso a qualquer momento, visando melhorias na experiência e segurança.  
-Sempre que houver alterações significativas, o usuário será informado e poderá optar por continuar ou não utilizando o aplicativo.
+3.2. Armazenamento
+- Dados são salvos localmente no dispositivo
+- Não há sincronização com servidores externos
+- O usuário pode apagar seus dados a qualquer momento
+- Não há backup automático das informações
 
-6. Limitação de Responsabilidade  
-O aplicativo é disponibilizado “como está”, sem garantias de funcionamento ininterrupto ou livre de falhas.  
-Os desenvolvedores não se responsabilizam por perdas de dados, mau uso do aplicativo, ou danos decorrentes de seu uso indevido.
+3.3. Permissões do Aplicativo
+O aplicativo solicita apenas as permissões essenciais para seu funcionamento:
+- Armazenamento: para salvar as rotas cadastradas
+- Tema do sistema: para ajustar a aparência do aplicativo
 
-7. Contato  
-Para dúvidas, sugestões ou solicitações relacionadas a estes Termos, o usuário pode entrar em contato pelo e-mail: suporte@bussapp.com.
+4. Responsabilidades
+4.1. Do Usuário
+- Fornecer informações precisas e atualizadas
+- Utilizar o aplicativo de forma adequada e legal
+- Manter a segurança do seu dispositivo
+- Fazer backup dos dados importantes, se desejar
+
+4.2. Do Desenvolvedor
+- Manter o funcionamento básico do aplicativo
+- Corrigir bugs e problemas técnicos
+- Atualizar o aplicativo conforme necessário
+- Respeitar a privacidade do usuário
+
+5. Limitações de Responsabilidade
+5.1. O aplicativo é fornecido "como está", sem garantias de:
+- Precisão dos horários de ônibus
+- Disponibilidade ininterrupta
+- Compatibilidade com todos os dispositivos
+- Backup ou recuperação de dados perdidos
+
+5.2. O desenvolvedor não se responsabiliza por:
+- Atrasos ou alterações nas rotas de ônibus
+- Perdas de dados por problemas no dispositivo
+- Uso inadequado do aplicativo
+- Decisões tomadas com base nas informações registradas
+
+6. Atualizações e Modificações
+6.1. O desenvolvedor pode:
+- Atualizar o aplicativo periodicamente
+- Modificar funcionalidades existentes
+- Adicionar ou remover recursos
+- Alterar estes termos de uso
+
+6.2. O usuário será notificado sobre:
+- Mudanças significativas no aplicativo
+- Alterações nos termos de uso
+- Novas funcionalidades importantes
+
+## 7. Suporte e Contato
+Para suporte, dúvidas ou sugestões:
+- Email: suporte@bussapp.com
+- Relate problemas através do menu "Sobre" do aplicativo
+
+8. Encerramento de Uso
+8.1. O usuário pode:
+- Desinstalar o aplicativo a qualquer momento
+- Apagar todos os dados salvos localmente
+- Cancelar seu uso sem aviso prévio
+
+9. Aceitação dos Termos
+Ao utilizar o Buss, o usuário declara que:
+- Leu e compreendeu estes termos
+- Concorda com todas as condições estabelecidas
+- Aceita a política de privacidade
+- Está ciente das limitações do aplicativo
 
 Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que leu, compreendeu e concorda com todas as condições apresentadas neste documento, bem como com a Política de Privacidade.
 ''';
@@ -262,7 +329,6 @@ Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que 
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            // adiciona listener ao controller (criado fora do builder)
             dialogScroll.addListener(() {
               if (!dialogScroll.hasClients) return;
               final max = dialogScroll.position.maxScrollExtent;
@@ -274,7 +340,6 @@ Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que 
               }
             });
 
-            // verifica após frame inicial se o conteúdo cabe inteiro
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (!dialogScroll.hasClients) return;
               final max = dialogScroll.position.maxScrollExtent;
@@ -317,7 +382,6 @@ Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que 
       },
     );
 
-    // remove listener e dispose (seguro mesmo se dialogScroll não usado depois)
     try {
       dialogScroll.dispose();
     } catch (_) {}
@@ -401,7 +465,7 @@ Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que 
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Abra e role até o fim do "teermos de uso" para poder aceitar',
+                            'Abra e role até o fim do "Termos de Uso" para poder aceitar',
                           ),
                         ),
                       );
@@ -413,7 +477,7 @@ Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que 
                   child: Text(
                     _hasReachedEnd
                         ? 'Li e aceito os Termos de Uso'
-                        : 'Abra "teermos de uso" e role até o fim para aceitar',
+                        : 'Abra "Termos de Uso" e role até o fim para aceitar',
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),

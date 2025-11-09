@@ -35,13 +35,10 @@ class _RouteListPageState extends State<RouteListPage> {
     }
   }
 
-  void _addRoute(BusRoute route) {
-    setState(() => _routes.add(route));
-  }
+  void _addRoute(BusRoute route) => setState(() => _routes.add(route));
 
-  void _editRoute(int index, BusRoute route) {
-    setState(() => _routes[index] = route);
-  }
+  void _editRoute(int index, BusRoute route) =>
+      setState(() => _routes[index] = route);
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +58,7 @@ class _RouteListPageState extends State<RouteListPage> {
               color: Theme.of(context).colorScheme.secondary,
             ),
             onPressed: widget.onThemeToggle,
+            tooltip: 'Trocar tema',
           ),
         ],
       ),
@@ -72,11 +70,19 @@ class _RouteListPageState extends State<RouteListPage> {
                 final route = _routes[index];
                 return Card(
                   color: highlightColor,
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   child: ListTile(
-                    leading: Icon(Icons.directions_bus,
-                        color: Theme.of(context).colorScheme.secondary),
-                    title: Text(route.name,
-                        style: const TextStyle(color: Colors.white)),
+                    leading: Icon(
+                      Icons.directions_bus,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                    title: Text(
+                      route.name,
+                      style: const TextStyle(color: Colors.white),
+                    ),
                     subtitle: Text(
                       'De: ${route.from}  Para: ${route.to}\nHorário: ${route.time}',
                       style: const TextStyle(color: Colors.white70),
@@ -109,6 +115,7 @@ class _RouteListPageState extends State<RouteListPage> {
           if (newRoute != null) _addRoute(newRoute);
         },
         child: const Icon(Icons.add),
+        tooltip: 'Adicionar rota',
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'Pages/onboarding_flow.dart';
+import 'core/Features/Onboarding/pages/onboarding_flow.dart';
+import 'core/theme/app_theme.dart';
+
 
 void main() {
   runApp(const BussApp());
@@ -31,57 +33,10 @@ class _BussAppState extends State<BussApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Buss',
-      theme: ThemeData(
-        colorScheme: ColorScheme(
-          brightness: Brightness.light,
-          primary: const Color(0xFF4338CA),
-          onPrimary: Colors.white,
-          secondary: const Color(0xFF84CC16),
-          onSecondary: Colors.white,
-          error: Colors.red,
-          onError: Colors.white,
-          background: const Color(0xFFF8FAFC),
-          onBackground: const Color(0xFF475569),
-          surface: Colors.white,
-          onSurface: const Color(0xFF475569),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF4338CA),
-          foregroundColor: Colors.white,
-        ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFF84CC16),
-          foregroundColor: Colors.white,
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme(
-          brightness: Brightness.dark,
-          primary: const Color(0xFF4338CA),
-          onPrimary: Colors.white,
-          secondary: const Color(0xFF84CC16),
-          onSecondary: Colors.black,
-          error: Colors.red,
-          onError: Colors.white,
-          background: const Color(0xFF181A20),
-          onBackground: Colors.white,
-          surface: const Color(0xFF23263A),
-          onSurface: Colors.white,
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF4338CA),
-          foregroundColor: Colors.white,
-        ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFF84CC16),
-          foregroundColor: Colors.white,
-        ),
-      ),
+      theme: AppTheme.lightTheme(),
+      darkTheme: AppTheme.darkTheme(),
       themeMode: _themeMode,
-      home: OnboardingFlow(
-        onThemeToggle: _toggleTheme,
-        themeMode: _themeMode,
-      ),
+      home: OnboardingFlow(onThemeToggle: _toggleTheme, themeMode: _themeMode),
     );
   }
 }
