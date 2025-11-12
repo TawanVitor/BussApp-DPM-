@@ -1,14 +1,19 @@
-import 'package:bussv1/core/Routes/Pages/route_list_page.dart';
 import 'package:flutter/material.dart';
-
+import 'package:bussv1/core/Routes/Pages/route_list_page.dart';
+import 'package:bussv1/core/Models/user_settings.dart'; // Adicione este import
 
 class OnboardingFlow extends StatefulWidget {
   final VoidCallback onThemeToggle;
   final ThemeMode themeMode;
+  final UserSettings settings;
+  final Function(UserSettings) onSettingsChanged; // Tipo correto especificado
+
   const OnboardingFlow({
     super.key,
     required this.onThemeToggle,
     required this.themeMode,
+    required this.settings,
+    required this.onSettingsChanged,
   });
 
   @override
@@ -84,6 +89,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                     builder: (_) => RouteListPage(
                       onThemeToggle: widget.onThemeToggle,
                       themeMode: widget.themeMode,
+                      settings: widget.settings,
+                      onSettingsChanged: widget.onSettingsChanged,
                     ),
                   ),
                 );

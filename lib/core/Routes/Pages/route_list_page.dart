@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../Models/bus_route.dart';
 import 'add_route_page.dart';
+import '../../Features/Settings/pages/settings_page.dart';
+import '../../../core/Models/user_settings.dart';
 
 class RouteListPage extends StatefulWidget {
   final VoidCallback onThemeToggle;
   final ThemeMode themeMode;
+  final UserSettings settings;
+  final Function(UserSettings) onSettingsChanged;
 
   const RouteListPage({
     super.key,
     required this.onThemeToggle,
     required this.themeMode,
+    required this.settings,
+    required this.onSettingsChanged,
   });
 
   @override
@@ -47,6 +54,46 @@ class _RouteListPageState extends State<RouteListPage> {
         : const Color.fromRGBO(40, 41, 136, 1);
 
     return Scaffold(
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              currentAccountPicture: CircleAvatar(
+                backgroundImage: widget.settings.photoPath != null
+                    ? FileImage(File(widget.settings.photoPath!))
+                    : null,
+                child: widget.settings.photoPath == null
+                    ? const Icon(Icons.person)
+                    : null,
+              ),
+              accountName: Text(widget.settings.name),
+              accountEmail: null,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Configurações'),
+              onTap: () {
+                Navigator.pop(context); // fecha o drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsPage(
+                      settings: widget.settings,
+                      onSettingsChanged: widget.onSettingsChanged,
+                      onThemeToggle: widget.onThemeToggle,
+                      themeMode: widget.themeMode,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
         title: const Text('Minhas Rotas'),
         actions: [

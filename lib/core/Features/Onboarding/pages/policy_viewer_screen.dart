@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 class PolicyViewerScreen extends StatelessWidget {
   final String title;
   final String content;
-  final VoidCallback onThemeToggle;
   final ThemeMode themeMode;
+  final VoidCallback onThemeToggle;
 
   const PolicyViewerScreen({
     super.key,
     required this.title,
     required this.content,
-    required this.onThemeToggle,
     required this.themeMode,
+    required this.onThemeToggle,
   });
 
   @override
@@ -31,18 +31,9 @@ class PolicyViewerScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              content,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                height: 1.5,
-                color: Theme.of(context).colorScheme.onBackground,
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
+        child: Text(
+          content,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
         ),
       ),
     );
