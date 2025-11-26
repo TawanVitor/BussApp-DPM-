@@ -3,14 +3,19 @@ import 'package:bussv1/core/theme/app_theme.dart';
 import 'package:bussv1/features/onboarding/presentation/pages/onboarding_flow.dart';
 import 'package:bussv1/features/settings/data/models/user_settings_model.dart';
 
+// ignore: unused_import
+import 'package:bussv1/features/bus_schedules/data/datasources/seed_data.dart';
 import 'features/settings/domain/entities/user_settings.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final settings = await UserSettingsModel.load();
+  
+  // Adicionar dados de exemplo se necessário
+  await BusSchedulesSeedData.seedIfEmpty();
+  
   runApp(BussApp(initialSettings: settings));
 }
-
 class BussApp extends StatefulWidget {
   final UserSettingsModel initialSettings;
 

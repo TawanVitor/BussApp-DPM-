@@ -4,6 +4,7 @@ import 'package:bussv1/features/routes/domain/entities/bus_route.dart';
 import 'package:bussv1/features/routes/presentation/pages/add_route_page.dart';
 import 'package:bussv1/features/settings/presentation/pages/settings_page.dart';
 import 'package:bussv1/features/settings/domain/entities/user_settings.dart';
+import 'package:bussv1/features/bus_schedules/presentation/pages/bus_schedules_list_page.dart';
 
 class RouteListPage extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -88,6 +89,22 @@ class _RouteListPageState extends State<RouteListPage> {
                     builder: (context) => SettingsPage(
                       settings: widget.settings,
                       onSettingsChanged: widget.onSettingsChanged,
+                      onThemeToggle: widget.onThemeToggle,
+                      themeMode: widget.themeMode,
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.schedule),
+              title: const Text('Horários de Ônibus'),
+              onTap: () {
+                Navigator.pop(context); // fecha o drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BusSchedulesListPage(
                       onThemeToggle: widget.onThemeToggle,
                       themeMode: widget.themeMode,
                     ),
