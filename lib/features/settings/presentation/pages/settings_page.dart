@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../../Models/user_settings.dart';
+import 'package:bussv1/features/settings/domain/entities/user_settings.dart';
+import 'package:bussv1/features/settings/data/models/user_settings_model.dart';
 import 'accessibility_page.dart';
-import '../../Onboarding/pages/policy_viewer_screen.dart';
+import 'package:bussv1/features/onboarding/presentation/pages/policy_viewer_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   final UserSettings settings;
@@ -43,17 +44,17 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final image = await _imagePicker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        final newSettings = UserSettings(
+        final newSettings = UserSettingsModel(
           name: _nameController.text,
           photoPath: image.path,
           isDarkMode: widget.settings.isDarkMode,
           textSize: widget.settings.textSize,
           useHighContrast: widget.settings.useHighContrast,
         );
-        widget.onSettingsChanged(newSettings);
-        await newSettings.save(); // Salva as alterações
+        widget.onSettingsChanged(newSettings as UserSettings);
+        await newSettings.save();
         if (mounted) {
-          Navigator.pop(context); // Fecha o diálogo após salvar
+          Navigator.pop(context);
         }
       }
     } catch (e) {
@@ -66,15 +67,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _updateName(String value) async {
-    final newSettings = UserSettings(
+    final newSettings = UserSettingsModel(
       name: value,
       photoPath: widget.settings.photoPath,
       isDarkMode: widget.settings.isDarkMode,
       textSize: widget.settings.textSize,
       useHighContrast: widget.settings.useHighContrast,
     );
-    widget.onSettingsChanged(newSettings);
-    await newSettings.save(); // Salva as alterações
+    widget.onSettingsChanged(newSettings as UserSettings);
+    await newSettings.save();
   }
 
   Future<void> _showProfileDialog(BuildContext context) async {
@@ -83,7 +84,6 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context) => AlertDialog(
         title: const Text('Editar Perfil'),
         content: SingleChildScrollView(
-          // Evita overflow em telas pequenas
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -153,7 +153,6 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
-          // Cabeçalho com foto e nome
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -176,8 +175,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const Divider(),
-
-          // Perfil
           ListTile(
             leading: const Icon(Icons.person),
             title: const Text('Perfil'),
@@ -185,8 +182,6 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: () => _showProfileDialog(context),
           ),
           const Divider(),
-
-          // Acessibilidade
           ListTile(
             leading: const Icon(Icons.accessibility_new),
             title: const Text('Acessibilidade'),
@@ -202,8 +197,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const Divider(),
-
-          // Tema
           ListTile(
             leading: Icon(
               widget.themeMode == ThemeMode.dark
@@ -219,8 +212,6 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: widget.onThemeToggle,
           ),
           const Divider(),
-
-          // Termos de Uso
           ListTile(
             leading: const Icon(Icons.description),
             title: const Text('Termos de Uso'),
@@ -230,23 +221,16 @@ class _SettingsPageState extends State<SettingsPage> {
               MaterialPageRoute(
                 builder: (context) => PolicyViewerScreen(
                   title: 'Termos de Uso',
-                  content: '''
-Termos de Uso do Aplicativo Buss
+                  content: '''Termos de Uso do Aplicativo Buss
 
 1. Descrição do Serviço
-O Buss é um aplicativo móvel desenvolvido para auxiliar estudantes e usuários de transporte público a gerenciar suas rotas de ônibus. O aplicativo permite:
-- Cadastrar rotas personalizadas de ônibus
-- Registrar horários de partida e chegada
-- Salvar pontos de parada
-- Organizar trajetos frequentes
-- Personalizar nomes e descrições das rotas
+O Buss é um aplicativo móvel desenvolvido para auxiliar estudantes e usuários de transporte público a gerenciar suas rotas de ônibus.
 
 2. Uso do Aplicativo
 2.1. O aplicativo é destinado ao uso pessoal e não comercial.
 2.2. Todas as informações cadastradas são armazenadas apenas localmente no dispositivo do usuário.
-2.3. O usuário é responsável pela precisão dos dados inseridos.
 
-3. Privacidade e Proteção de Dados
+3. Privacidade e Proteção de Dados (LGPD)
 3.1. O aplicativo segue a Lei Geral de Proteção de Dados (LGPD).
 3.2. Nenhum dado é compartilhado com terceiros.
 3.3. Todas as informações são armazenadas localmente.
@@ -256,8 +240,7 @@ O Buss é um aplicativo móvel desenvolvido para auxiliar estudantes e usuários
 4.2. Não garantimos funcionamento ininterrupto.
 
 5. Contato
-Email: suporte@bussapp.com
-''',
+Email: suporte@bussapp.com''',
                   themeMode: widget.themeMode,
                   onThemeToggle: widget.onThemeToggle,
                 ),

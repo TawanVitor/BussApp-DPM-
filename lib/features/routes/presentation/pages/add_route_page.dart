@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:bussv1/core/Routes/Models/bus_route.dart';
+import 'package:bussv1/features/routes/domain/entities/bus_route.dart';
 
 class AddRoutePage extends StatefulWidget {
   final BusRoute? initialRoute;
@@ -21,10 +21,16 @@ class _AddRoutePageState extends State<AddRoutePage> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.initialRoute?.name ?? '');
-    _fromController = TextEditingController(text: widget.initialRoute?.from ?? '');
+    _nameController = TextEditingController(
+      text: widget.initialRoute?.name ?? '',
+    );
+    _fromController = TextEditingController(
+      text: widget.initialRoute?.from ?? '',
+    );
     _toController = TextEditingController(text: widget.initialRoute?.to ?? '');
-    _timeController = TextEditingController(text: widget.initialRoute?.time ?? '');
+    _timeController = TextEditingController(
+      text: widget.initialRoute?.time ?? '',
+    );
   }
 
   @override
@@ -39,11 +45,13 @@ class _AddRoutePageState extends State<AddRoutePage> {
   void _save() {
     if (_formKey.currentState?.validate() ?? false) {
       final route = BusRoute(
+        id: widget.initialRoute?.id ?? DateTime.now().toString(),
         name: _nameController.text.trim(),
         from: _fromController.text.trim(),
         to: _toController.text.trim(),
         time: _timeController.text.trim(),
         stops: widget.initialRoute?.stops ?? [],
+        createdAt: widget.initialRoute?.createdAt ?? DateTime.now(),
       );
       Navigator.of(context).pop(route);
     }
@@ -64,25 +72,33 @@ class _AddRoutePageState extends State<AddRoutePage> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Nome da rota'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe um nome' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Informe um nome' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _fromController,
                 decoration: const InputDecoration(labelText: 'Origem'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe a origem' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Informe a origem' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _toController,
                 decoration: const InputDecoration(labelText: 'Destino'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o destino' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Informe o destino'
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _timeController,
-                decoration: const InputDecoration(labelText: 'Horário (ex: 07:00)'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Informe o horário' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Horário (ex: 07:00)',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Informe o horário'
+                    : null,
               ),
               const SizedBox(height: 20),
               ElevatedButton(

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import '../Models/bus_route.dart';
-import 'add_route_page.dart';
-import '../../Features/Settings/pages/settings_page.dart';
-import '../../../core/Models/user_settings.dart';
+import 'package:bussv1/features/routes/domain/entities/bus_route.dart';
+import 'package:bussv1/features/routes/presentation/pages/add_route_page.dart';
+import 'package:bussv1/features/settings/presentation/pages/settings_page.dart';
+import 'package:bussv1/features/settings/domain/entities/user_settings.dart';
 
 class RouteListPage extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -32,11 +32,13 @@ class _RouteListPageState extends State<RouteListPage> {
     if (_routes.isEmpty) {
       _routes.add(
         BusRoute(
+          id: '1',
           name: 'Casa → Campus',
           from: 'Casa',
           to: 'Campus',
           time: '07:00',
           stops: ['Ponto 1', 'Ponto 2'],
+          createdAt: DateTime.now(),
         ),
       );
     }
@@ -46,6 +48,8 @@ class _RouteListPageState extends State<RouteListPage> {
 
   void _editRoute(int index, BusRoute route) =>
       setState(() => _routes[index] = route);
+
+  void _deleteRoute(int index) => setState(() => _routes.removeAt(index));
 
   @override
   Widget build(BuildContext context) {
@@ -134,20 +138,36 @@ class _RouteListPageState extends State<RouteListPage> {
                       'De: ${route.from}  Para: ${route.to}\nHorário: ${route.time}',
                       style: const TextStyle(color: Colors.white70),
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.white),
-                      onPressed: () async {
-                        final edited = await Navigator.push<BusRoute>(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddRoutePage(
-                              initialRoute: route,
-                              isEditing: true,
+                    trailing: PopupMenuButton(
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddRoutePage(
+                                initialRoute: route,
+                                isEditing: true,
+                              ),
                             ),
-                          ),
-                        );
-                        if (edited != null) _editRoute(index, edited);
+                          ).then((edited) {
+                            if (edited != null) {
+                              _editRoute(index, edited);
+                            }
+                          });
+                        } else if (value == 'delete') {
+                          _deleteRoute(index);
+                        }
                       },
+                      itemBuilder: (BuildContext context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Editar'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Deletar'),
+                        ),
+                      ],
                     ),
                   ),
                 );

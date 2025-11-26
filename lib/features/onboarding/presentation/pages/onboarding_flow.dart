@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:bussv1/core/Routes/Pages/route_list_page.dart';
-import 'package:bussv1/core/Models/user_settings.dart'; // Adicione este import
+import 'package:bussv1/features/routes/presentation/pages/route_list_page.dart';
+import 'package:bussv1/features/settings/domain/entities/user_settings.dart';
 
 class OnboardingFlow extends StatefulWidget {
   final VoidCallback onThemeToggle;
   final ThemeMode themeMode;
   final UserSettings settings;
-  final Function(UserSettings) onSettingsChanged; // Tipo correto especificado
+  final Function(UserSettings) onSettingsChanged;
 
   const OnboardingFlow({
     super.key,
@@ -51,7 +51,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         description:
             'Registre e visualize suas rotas de ônibus facilmente. Ideal para estudantes que dependem de transporte público.',
         icon: Icons.directions_bus,
-        color: Theme.of(context).colorScheme.primary,
+       color: Theme.of(context).colorScheme.primary,
         onNext: _next,
         onThemeToggle: widget.onThemeToggle,
         themeMode: widget.themeMode,
@@ -105,8 +105,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 }
 
-// As classes auxiliares _OnboardingPage, _TermsOfUsePage, _LGPDPage
-// permanecem aqui para manter a coesão do Onboarding
 class _OnboardingPage extends StatelessWidget {
   final String title;
   final String description;
@@ -135,7 +133,7 @@ class _OnboardingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         actions: [
           IconButton(
@@ -159,7 +157,7 @@ class _OnboardingPage extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onBackground,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
@@ -168,7 +166,7 @@ class _OnboardingPage extends StatelessWidget {
               Text(
                 description,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onBackground,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -231,10 +229,9 @@ class _TermsOfUsePage extends StatefulWidget {
 class _TermsOfUsePageState extends State<_TermsOfUsePage> {
   bool _hasReachedEnd = false;
 
-  final String termsText = '''
-Termos de Uso do Aplicativo Buss
+  final String termsText = '''Termos de Uso do Aplicativo Buss
 
-. Descrição do Serviço
+1. Descrição do Serviço
 O Buss é um aplicativo móvel desenvolvido para auxiliar estudantes e usuários de transporte público a gerenciar suas rotas de ônibus. O aplicativo permite:
 - Cadastrar rotas personalizadas de ônibus
 - Registrar horários de partida e chegada
@@ -263,68 +260,23 @@ Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018):
 - O usuário pode apagar seus dados a qualquer momento
 - Não há backup automático das informações
 
-3.3. Permissões do Aplicativo
-O aplicativo solicita apenas as permissões essenciais para seu funcionamento:
-- Armazenamento: para salvar as rotas cadastradas
-- Tema do sistema: para ajustar a aparência do aplicativo
-
 4. Responsabilidades
 4.1. Do Usuário
 - Fornecer informações precisas e atualizadas
 - Utilizar o aplicativo de forma adequada e legal
 - Manter a segurança do seu dispositivo
-- Fazer backup dos dados importantes, se desejar
 
 4.2. Do Desenvolvedor
 - Manter o funcionamento básico do aplicativo
 - Corrigir bugs e problemas técnicos
-- Atualizar o aplicativo conforme necessário
 - Respeitar a privacidade do usuário
 
 5. Limitações de Responsabilidade
-5.1. O aplicativo é fornecido "como está", sem garantias de:
-- Precisão dos horários de ônibus
-- Disponibilidade ininterrupta
-- Compatibilidade com todos os dispositivos
-- Backup ou recuperação de dados perdidos
+5.1. O aplicativo é fornecido "como está", sem garantias de funcionamento ininterrupto.
+5.2. O desenvolvedor não se responsabiliza por perdas de dados ou uso inadequado.
 
-5.2. O desenvolvedor não se responsabiliza por:
-- Atrasos ou alterações nas rotas de ônibus
-- Perdas de dados por problemas no dispositivo
-- Uso inadequado do aplicativo
-- Decisões tomadas com base nas informações registradas
-
-6. Atualizações e Modificações
-6.1. O desenvolvedor pode:
-- Atualizar o aplicativo periodicamente
-- Modificar funcionalidades existentes
-- Adicionar ou remover recursos
-- Alterar estes termos de uso
-
-6.2. O usuário será notificado sobre:
-- Mudanças significativas no aplicativo
-- Alterações nos termos de uso
-- Novas funcionalidades importantes
-
-## 7. Suporte e Contato
-Para suporte, dúvidas ou sugestões:
-- Email: suporte@bussapp.com
-- Relate problemas através do menu "Sobre" do aplicativo
-
-8. Encerramento de Uso
-8.1. O usuário pode:
-- Desinstalar o aplicativo a qualquer momento
-- Apagar todos os dados salvos localmente
-- Cancelar seu uso sem aviso prévio
-
-9. Aceitação dos Termos
-Ao utilizar o Buss, o usuário declara que:
-- Leu e compreendeu estes termos
-- Concorda com todas as condições estabelecidas
-- Aceita a política de privacidade
-- Está ciente das limitações do aplicativo
-
-Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que leu, compreendeu e concorda com todas as condições apresentadas neste documento, bem como com a Política de Privacidade.
+6. Suporte e Contato
+Email: suporte@bussapp.com
 ''';
 
   Future<void> _openFullTermsDialog() async {
@@ -399,7 +351,7 @@ Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que 
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Você leu o Termos de Uso. Agora pode aceitar.'),
+          content: Text('Você leu os Termos de Uso. Agora pode aceitar.'),
         ),
       );
     }
@@ -408,7 +360,7 @@ Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Termos de Uso'),
         actions: [
@@ -436,7 +388,7 @@ Ao marcar a opção “Li e aceito os Termos de Uso”, o usuário confirma que 
             Text(
               'Antes de continuar, leia atentamente os Termos de Uso.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onBackground,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               textAlign: TextAlign.center,
             ),
@@ -525,6 +477,7 @@ class _LGPDPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('LGPD'),
         actions: [
@@ -551,7 +504,7 @@ class _LGPDPage extends StatelessWidget {
             Text(
               'Termos de Privacidade (LGPD)',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onBackground,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
@@ -563,7 +516,7 @@ class _LGPDPage extends StatelessWidget {
                   'Este aplicativo armazena apenas as rotas, horários e paradas que você cadastrar manualmente. Nenhum dado pessoal sensível é coletado ou compartilhado. '
                   'Ao continuar, você concorda com o uso das informações fornecidas para funcionamento do app, conforme a Lei Geral de Proteção de Dados (LGPD).',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onBackground,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.center,
                 ),
