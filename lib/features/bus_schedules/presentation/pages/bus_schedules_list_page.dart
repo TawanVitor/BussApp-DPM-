@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:bussv1/features/bus_schedules/presentation/dialogs/edit_schedule_dialog.dart';
 import '../../data/datasources/bus_schedules_local_dao.dart';
+import '../../data/models/bus_schedule_model.dart';
 import '../../domain/entities/bus_schedule.dart';
 import '../../domain/entities/bus_schedule_filters.dart';
 import '../../domain/entities/bus_schedule_list_response.dart';
 import '../dialogs/schedule_actions_dialog.dart';
 import '../dialogs/remove_confirmation_dialog.dart';
-import '../pages/edit_schedule_page.dart';
 
 class BusSchedulesListPage extends StatefulWidget {
   final VoidCallback onThemeToggle;
@@ -161,44 +162,23 @@ class _BusSchedulesListPageState extends State<BusSchedulesListPage> {
     );
   }
 
-  // Handler para edição
   Future<void> _handleEdit(BusSchedule schedule) async {
-    final updatedSchedule = await Navigator.push<BusSchedule>(
+    // Convertendo para modelo para edição
+    if (schedule is! BusScheduleModel) return;
+    
+    await showEditScheduleDialog(
       context,
-      MaterialPageRoute(
-        builder: (context) => EditSchedulePage(schedule: schedule),
-      ),
+      schedule,
+      () => _loadSchedules(),
     );
-
-    if (updatedSchedule != null) {
-      try {
-        // Atualizar no DAO
-        await _dao.upsertAll([updatedSchedule]);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Horário atualizado com sucesso')),
-          );
-          _loadSchedules(); // Recarregar lista
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erro ao atualizar: $e')),
-          );
-        }
-      }
-    }
   }
 
-  // Handler para remoção
   Future<void> _handleRemove(BusSchedule schedule) async {
     await RemoveConfirmationDialog.show(
       context: context,
       schedule: schedule,
       onConfirm: () async {
         try {
-          // Remover do DAO usando filtro por ID
           final allSchedules = await _dao.listAll(pageSize: 10000);
           final filtered = allSchedules.data
               .where((s) => s.id != schedule.id)
@@ -213,7 +193,7 @@ class _BusSchedulesListPageState extends State<BusSchedulesListPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Horário removido com sucesso')),
             );
-            _loadSchedules(); // Recarregar lista
+            _loadSchedules();
           }
         } catch (e) {
           if (mounted) {
@@ -226,13 +206,20 @@ class _BusSchedulesListPageState extends State<BusSchedulesListPage> {
     );
   }
 
-  // Handler para exibir diálogo de ações
   void _showActionsDialog(BusSchedule schedule) {
     ScheduleActionsDialog.show(
       context: context,
       schedule: schedule,
       onEdit: () => _handleEdit(schedule),
       onRemove: () => _handleRemove(schedule),
+    );
+  }
+
+  Future<void> _handleEditSchedule(BusScheduleModel schedule) async {
+    await showEditScheduleDialog(
+      context,
+      schedule,
+      () => _loadSchedules(),
     );
   }
 
@@ -326,6 +313,8 @@ class _BusSchedulesListPageState extends State<BusSchedulesListPage> {
                           return _BusScheduleCard(
                             schedule: schedule,
                             onLongPress: () => _showActionsDialog(schedule),
+                            onEdit: (scheduleModel) =>
+                                _handleEditSchedule(scheduleModel),
                           );
                         },
                       ),
@@ -339,10 +328,12 @@ class _BusSchedulesListPageState extends State<BusSchedulesListPage> {
 class _BusScheduleCard extends StatelessWidget {
   final BusSchedule schedule;
   final VoidCallback onLongPress;
+  final Function(BusScheduleModel)? onEdit;
 
   const _BusScheduleCard({
     required this.schedule,
     required this.onLongPress,
+    this.onEdit,
   });
 
   @override
@@ -357,7 +348,7 @@ class _BusScheduleCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: () => _showDetailsDialog(context),
-        onLongPress: onLongPress, // Adiciona long press
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -438,6 +429,15 @@ class _BusScheduleCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.blue),
+                    onPressed: () {
+                      if (schedule is BusScheduleModel && onEdit != null) {
+                        onEdit!(schedule as BusScheduleModel);
+                      }
+                    },
+                    tooltip: 'Editar agendamento',
                   ),
                 ],
               ),
@@ -531,41 +531,43 @@ class _BusScheduleCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                ...schedule.stops!.map((stop) => Padding(
-                      padding: const EdgeInsets.only(left: 8, bottom: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${stop.order}. ',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(stop.name),
-                                Text(
-                                  stop.street,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                if (stop.estimatedTime != null)
-                                  Text(
-                                    'Às ${stop.estimatedTime}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
+                ...schedule.stops!
+                    .map((stop) => Padding(
+                          padding: const EdgeInsets.only(left: 8, bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${stop.order}. ',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(stop.name),
+                                    Text(
+                                      stop.street,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
                                     ),
-                                  ),
-                              ],
-                            ),
+                                    if (stop.estimatedTime != null)
+                                      Text(
+                                        'Às ${stop.estimatedTime}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    )),
+                        ))
+                    .toList(),
               ],
             ],
           ),
