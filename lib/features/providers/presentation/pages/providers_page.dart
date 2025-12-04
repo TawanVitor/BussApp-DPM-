@@ -120,6 +120,62 @@ class _ProvidersPageState extends State<ProvidersPage> {
   /// 3. Se vazio → auto-sync com Supabase
   /// 4. Recarregar
   /// 5. Atualizar UI
+  /// 📱 Carrega providers com sincronização bidirecional automática
+  ///
+  /// **MUDANÇA: Agora SEMPRE sincroniza (não apenas se vazio)**
+  ///
+  /// **NOVO FLUXO (Push-Then-Pull):**
+  ///
+  /// ```
+  /// ┌──────────────────────────────────────────┐
+  /// │ 1️⃣  Load Cache (rápido, sem bloqueio)    │
+  /// │  └─ Mostra dados locais imediatamente    │
+  /// └──────────┬───────────────────────────────┘
+  ///            │
+  /// ┌──────────▼───────────────────────────────┐
+  /// │ 2️⃣  SEMPRE Sync (bidirecional)           │
+  /// │  ├─ PUSH: enviar cache local → Supabase  │
+  /// │  ├─ PULL: receber remoto → cache local   │
+  /// │  └─ UI respira com LinearProgressIndicator
+  /// └──────────┬───────────────────────────────┘
+  ///            │
+  /// ┌──────────▼───────────────────────────────┐
+  /// │ 3️⃣  Reload Cache (dados atualizados)     │
+  /// │  └─ Mostra resultados da sync            │
+  /// └──────────────────────────────────────────┘
+  /// ```
+  ///
+  /// **Diferenças da versão anterior:**
+  /// - ❌ Antigo: Só sincronizava se cache vazio (passivo)
+  /// - ✅ Novo: Sempre sincroniza (ativo, bidirecional)
+  /// - ✅ Novo: Push envia mudanças locais
+  /// - ✅ Novo: Pull recebe mudanças remotas
+  ///
+  /// **User Experience:**
+  /// 1. Página abre → mostra dados locais (instantâneo)
+  /// 2. LinearProgressIndicator aparece no topo
+  /// 3. Sync ocorre em background (push + pull)
+  /// 4. Dados atualizados aparecem
+  /// 5. LinearProgressIndicator desaparece
+  ///
+  /// **Casos de teste:**
+  /// ✅ Primeira abertura (cache vazio) → mostra placeholder, sync, carrega remoto
+  /// ✅ Abertura posterior (cache com dados) → mostra cache, sync, atualiza
+  /// ✅ Sem conexão → mostra cache, sync falha com erro, mostra snackbar
+  /// ✅ Mudança offline → cache preservado, envia no próximo sync
+  ///
+  /// **Log esperado:**
+  /// ```
+  /// [ProvidersPage] iniciando carregamento...
+  /// [ProvidersPage] carregados 3 do cache
+  /// [ProvidersPage] iniciando auto-sync BIDIRECIONAL...
+  /// [ProvidersRepository] Iniciando SYNC BIDIRECIONAL...
+  /// [ProvidersRepository] PUSH: enviando 2 items locais
+  /// [ProvidersRepository] PULL: buscando atualizações remotas
+  /// [ProvidersRepository] Sync concluído: 5 total
+  /// [ProvidersPage] sincronizados 5 providers!
+  /// [ProvidersPage] UI atualizada com 5 providers
+  /// ```
   Future<void> _loadProviders() async {
     try {
       if (kDebugMode) {
@@ -129,48 +185,55 @@ class _ProvidersPageState extends State<ProvidersPage> {
       if (!mounted) return;
       setState(() => _isLoading = true);
 
-      // 🔵 PASSO 1: Carregar do cache (rápido)
+      // 🔵 PASSO 1: Carregar do cache (rápido, sem esperar sync)
       var providers = await _repository.getAll();
 
       if (kDebugMode) {
         print('[ProvidersPage] carregados ${providers.length} providers do cache');
       }
 
-      // 🔵 PASSO 2: Se vazio, sincronizar com servidor
-      if (providers.isEmpty) {
+      // 🔵 PASSO 2: MUDANÇA IMPORTANTE - SEMPRE sincronizar (não condicional)
+      // Isso garante que:
+      // - Local → Remoto: mudanças offline são enviadas (PUSH)
+      // - Remoto → Local: mudanças de outros usuários são recebidas (PULL)
+      if (kDebugMode) {
+        print('[ProvidersPage] iniciando auto-sync BIDIRECIONAL (sempre, não condicional)...');
+      }
+
+      if (!mounted) return;
+      setState(() => _isSyncing = true);
+
+      try {
+        final synced = await _repository.syncFromServer();
+
         if (kDebugMode) {
-          print('[ProvidersPage] cache vazio, iniciando auto-sync...');
+          print('[ProvidersPage] ✅ sincronizados $synced providers (PUSH + PULL)!');
         }
 
-        if (!mounted) return;
-        setState(() => _isSyncing = true);
+        // 🔵 PASSO 3: Recarregar após sync (dados atualizados)
+        providers = await _repository.getAll();
 
-        try {
-          final synced = await _repository.syncFromServer();
-
-          if (kDebugMode) {
-            print('[ProvidersPage] sincronizados $synced providers!');
-          }
-
-          // 🔵 PASSO 3: Recarregar após sync
-          providers = await _repository.getAll();
-        } catch (syncError) {
-          if (kDebugMode) {
-            print('[ProvidersPage] ❌ erro ao sincronizar: $syncError');
-          }
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erro ao sincronizar: $syncError')),
-            );
-          }
-        } finally {
-          if (mounted) {
-            setState(() => _isSyncing = false);
-          }
+        if (kDebugMode) {
+          print('[ProvidersPage] recarregados ${providers.length} providers após sync');
+        }
+      } catch (syncError) {
+        if (kDebugMode) {
+          print('[ProvidersPage] ⚠️ erro ao sincronizar: $syncError');
+        }
+        // Continua com dados do cache mesmo com erro
+        // (tipo push falhou, mas pull pode ter tido sucesso)
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro ao sincronizar: $syncError')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isSyncing = false);
         }
       }
 
-      // 🔵 PASSO 4: Atualizar UI
+      // 🔵 PASSO 4: Atualizar UI com dados finais
       if (mounted) {
         setState(() {
           _providers = providers;
@@ -183,7 +246,7 @@ class _ProvidersPageState extends State<ProvidersPage> {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('[ProvidersPage] ❌ erro ao carregar: $e');
+        print('[ProvidersPage] ❌ erro fatal ao carregar: $e');
       }
       if (mounted) {
         setState(() => _isLoading = false);

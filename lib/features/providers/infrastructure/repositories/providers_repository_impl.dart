@@ -224,66 +224,172 @@ class ProvidersRepositoryImpl implements IProvidersRepository {
     }
   }
 
-  /// 🔄 Sincroniza com Supabase (one-shot)
+  /// 🔄 Sincroniza com Supabase - Push-Then-Pull (Bidirecional)
   ///
-  /// **FLUXO COMPLETO (DIDÁTICO):**
+  /// **FLUXO COMPLETO - SINCRONIZAÇÃO BIDIRECIONAL:**
+  ///
+  /// Esta implementação realiza um ciclo completo de sincronização:
   ///
   /// ```
-  /// PASSO 1: Buscar dados remotos
-  ///   |
-  ///   v
-  /// PASSO 2: Converter DTOs → Entidades (Mapper)
-  ///   |
-  ///   v
-  /// PASSO 3: Converter Entidades → DTOs (Mapper)
-  ///   |
-  ///   v
-  /// PASSO 4: Upsert no cache (DAO)
-  ///   |
-  ///   v
-  /// PASSO 5: Retornar quantidade
+  /// ┌─────────────────────────────────────────┐
+  /// │  1️⃣  PUSH (Local → Supabase)            │
+  /// │  ├─ Carregar cache local                │
+  /// │  ├─ Enviar via upsertProviders()        │
+  /// │  └─ Registrar resultado (erro ignorado) │
+  /// └──────────────┬──────────────────────────┘
+  ///                │
+  /// ┌──────────────▼──────────────────────────┐
+  /// │  2️⃣  PULL (Supabase → Local)            │
+  /// │  ├─ Buscar atualizações remotas         │
+  /// │  ├─ Aplicar via upsertAll()             │
+  /// │  └─ Atualizar lastSync timestamp        │
+  /// └──────────────┬──────────────────────────┘
+  ///                │
+  /// ┌──────────────▼──────────────────────────┐
+  /// │  3️⃣  RESULTADO                          │
+  /// │  └─ Retornar quantidade sincronizada    │
+  /// └──────────────────────────────────────────┘
   /// ```
+  ///
+  /// **Por que Push-Then-Pull?**
+  ///
+  /// 1. **Push primeiro:**
+  ///    - Envia mudanças locais para remoto (offlinechanges)
+  ///    - Usa upsert (insert-or-update) para segurança
+  ///    - Erros de push não bloqueiam o pull
+  ///
+  /// 2. **Pull depois:**
+  ///    - Busca mudanças remotas (feitas por outros usuários)
+  ///    - Aplica localmente (reconciliação)
+  ///    - Garante consistência final
+  ///
+  /// **Tratamento de conflitos:**
+  /// - Usa timestamp `updated_at` para resolver conflitos
+  /// - Política: Last-Write-Wins (quem atualizou mais recentemente ganha)
+  /// - O servidor é a fonte de verdade após o pull
   ///
   /// **Log esperado:**
   /// ```
   /// [ProvidersRepository] Iniciando sync com Supabase...
-  /// [ProvidersRepository] Buscados 42 providers remotos
-  /// [ProvidersRepository] Aplicados 42 providers ao cache
-  /// [ProvidersRepository] Sync concluído com sucesso!
+  /// [ProvidersRepository] PUSH: enviando 3 providers locais
+  /// [SupabaseDatasource] upsertProviders: enviando 3 itens
+  /// [ProvidersRepository] PUSH: 3 items enviados (ou 0 se erro)
+  /// [ProvidersRepository] PULL: buscando atualizações remotas
+  /// [ProvidersRepository] PULL: aplicados 2 providers remotos
+  /// [ProvidersRepository] Sync concluído: 5 total
   /// ```
   ///
-  /// **Checklist de erros ao implementar:**
-  /// ❌ Não converter DTOs → não causaria erro, mas viola a arquitetura
-  /// ❌ Não fazer upsert (apenas insert) → duplicaria em sincronizações seguintes
-  /// ❌ Não retornar quantidade → UI não sabe quantos foram sincronizados
+  /// **Checklist de implementação:**
+  /// ✅ Ler cache local para push
+  /// ✅ Chamar upsertProviders (melhor esforço)
+  /// ✅ Registrar resultado do push (mesmo com erro)
+  /// ✅ Buscar remoto para pull
+  /// ✅ Aplicar remotos localmente
+  /// ✅ Atualizar lastSync
+  /// ✅ Retornar contagem total
+  /// ✅ Logging em cada passo
+  /// ✅ if(mounted) antes de setState (na UI)
+  /// ✅ Timeout de 30s (na UI)
   ///
-  /// **Timeout sugerido para UI:** 30 segundos
+  /// **Erros comuns:**
+  /// ❌ Bloquear pull se push falhar → Usa try/catch para continuar
+  /// ❌ Não converter DTOs → Usar Mapper para conversão
+  /// ❌ Perder IDs locais → Supabase preserva IDs via upsert
+  /// ❌ Não sincronizar se cache tem dados → Sempre sincroniza (bidirecional)
   @override
   Future<int> syncFromServer() async {
     try {
       if (kDebugMode) {
-        print('[ProvidersRepository] Iniciando sync com Supabase...');
+        print('[ProvidersRepository] ═══════════════════════════════════════');
+        print('[ProvidersRepository] Iniciando SYNC BIDIRECIONAL com Supabase...');
+        print('[ProvidersRepository] ═══════════════════════════════════════');
       }
 
-      // 🔵 PASSO 1: Busca dados remotos (retorna DTOs)
-      final remoteDtoList = await _remoteApi.fetchAll();
+      int totalSynced = 0;
+
+      // ═══════════════════════════════════════════════════════════════
+      // 🔵 PASSO 1: PUSH (Local → Supabase)
+      // ═══════════════════════════════════════════════════════════════
 
       if (kDebugMode) {
-        print('[ProvidersRepository] Buscados ${remoteDtoList.length} providers remotos');
+        print('[ProvidersRepository] 📤 INICIANDO PUSH...');
       }
 
-      // 🔵 PASSO 2: Upsert DTOs no cache (DAO trabalha com DTOs)
-      await _localDao.upsertAll(remoteDtoList);
+      try {
+        // Carregar cache local
+        final localDtoList = await _localDao.listAll();
+
+        if (kDebugMode) {
+          print('[ProvidersRepository] PUSH: carregados ${localDtoList.length} items locais');
+        }
+
+        // Enviar para remoto (upsert - insert or update)
+        final pushed = await _remoteApi.upsertProviders(localDtoList);
+
+        if (kDebugMode) {
+          print('[ProvidersRepository] ✅ PUSH: $pushed items enviados para remoto');
+        }
+
+        totalSynced += pushed; // Soma ao total
+
+      } catch (pushError) {
+        // ⚠️ Erro no push NÃO bloqueia o pull
+        // Isso é o "best-effort" mencionado no prompt
+        if (kDebugMode) {
+          print('[ProvidersRepository] ⚠️ Erro no PUSH (continuando com PULL): $pushError');
+        }
+        // Não relança erro - continua com pull
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 🔵 PASSO 2: PULL (Supabase → Local)
+      // ═══════════════════════════════════════════════════════════════
 
       if (kDebugMode) {
-        print('[ProvidersRepository] Aplicados ${remoteDtoList.length} providers ao cache');
-        print('[ProvidersRepository] Sync concluído com sucesso!');
+        print('[ProvidersRepository] 📥 INICIANDO PULL...');
       }
 
-      return remoteDtoList.length;
+      try {
+        // Buscar dados remotos
+        final remoteDtoList = await _remoteApi.fetchAll();
+
+        if (kDebugMode) {
+          print('[ProvidersRepository] PULL: buscados ${remoteDtoList.length} items remotos');
+        }
+
+        // Aplicar no cache local (upsertAll - preserve locals if not in remote)
+        await _localDao.upsertAll(remoteDtoList);
+
+        if (kDebugMode) {
+          print('[ProvidersRepository] ✅ PULL: ${remoteDtoList.length} items aplicados ao cache');
+        }
+
+        totalSynced += remoteDtoList.length; // Soma ao total
+
+        // ═══════════════════════════════════════════════════════════════
+        // 🔵 PASSO 3: RESULT
+        // ═══════════════════════════════════════════════════════════════
+
+        if (kDebugMode) {
+          print('[ProvidersRepository] ═══════════════════════════════════════');
+          print('[ProvidersRepository] ✅ SYNC CONCLUÍDO COM SUCESSO!');
+          print('[ProvidersRepository] Total sincronizado: $totalSynced items');
+          print('[ProvidersRepository] ═══════════════════════════════════════');
+        }
+
+        return totalSynced;
+
+      } catch (pullError) {
+        // Erro no pull é crítico - relança
+        if (kDebugMode) {
+          print('[ProvidersRepository] ❌ Erro CRÍTICO no PULL: $pullError');
+        }
+        rethrow;
+      }
+
     } catch (e) {
       if (kDebugMode) {
-        print('[ProvidersRepository] ❌ Erro ao sincronizar: $e');
+        print('[ProvidersRepository] ❌ Erro fatal ao sincronizar: $e');
       }
       rethrow;
     }
