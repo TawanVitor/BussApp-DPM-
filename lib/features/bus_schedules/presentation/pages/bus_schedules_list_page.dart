@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bussv1/features/bus_schedules/presentation/dialogs/edit_schedule_dialog.dart';
 import '../../data/datasources/bus_schedules_local_dao.dart';
@@ -5,6 +6,8 @@ import '../../data/models/bus_schedule_model.dart';
 import '../../domain/entities/bus_schedule.dart';
 import '../../domain/entities/bus_schedule_filters.dart';
 import '../../domain/entities/bus_schedule_list_response.dart';
+import '../../infrastructure/remote/supabase_bus_schedules_remote_datasource.dart';
+import '../../infrastructure/repositories/bus_schedules_repository_impl.dart';
 import '../dialogs/schedule_actions_dialog.dart';
 import '../dialogs/remove_confirmation_dialog.dart';
 
@@ -34,22 +37,114 @@ class _BusSchedulesListPageState extends State<BusSchedulesListPage> {
     _loadSchedules();
   }
 
+  /// Carrega agendamentos com sincronização automática se cache está vazio
+  ///
+  /// **Fluxo:**
+  /// 1. Carrega lista local do cache (DAO)
+  /// 2. Se vazio: sincroniza com Supabase em background
+  /// 3. Recarrega lista após sync
+  /// 4. Mantém UX responsiva (não bloqueia com overlay)
+  ///
+  /// **Importante:** Sempre verificar `mounted` antes de setState para evitar
+  /// erro "setState called after dispose" em operações assíncronas
   Future<void> _loadSchedules() async {
+    if (kDebugMode) {
+      print('BusSchedulesListPage._loadSchedules: iniciando carregamento');
+    }
+
     setState(() => _isLoading = true);
 
     try {
+      // ========== PASSO 1: Carregar cache local ==========
+      // Sempre tentar carregar do cache primeiro (rápido, responsivo)
       final response = await _dao.listAll(
         filters: _filters,
         include: ['stops'],
       );
 
-      if (mounted) {
-        setState(() {
-          _response = response;
-          _isLoading = false;
-        });
+      if (kDebugMode) {
+        print('BusSchedulesListPage._loadSchedules: carregados ${response.data.length} agendamentos do cache');
+      }
+
+      // ========== PASSO 2: Se cache vazio, sincronizar com Supabase ==========
+      if (response.data.isEmpty) {
+        if (kDebugMode) {
+          print('BusSchedulesListPage._loadSchedules: cache vazio, iniciando sincronização com Supabase');
+        }
+
+        try {
+          // Construir instâncias de remote API e repository
+          // Nota: Em produção, isso deve vir do service locator (GetIt, Riverpod, etc)
+          final remoteApi = SupabaseBusSchedulesRemoteDatasource();
+          final repository = BusSchedulesRepositoryImpl(
+            remoteApi: remoteApi,
+            localDao: _dao,
+          );
+
+          // Sincronizar: busca do Supabase, converte, persiste no cache local
+          final synced = await repository.syncFromServer();
+
+          if (kDebugMode) {
+            print('BusSchedulesListPage._loadSchedules: sincronizados $synced agendamentos');
+          }
+
+          // ========== PASSO 3: Recarregar lista após sync ==========
+          // Buscar novamente do cache agora que foi atualizado
+          final updatedResponse = await _dao.listAll(
+            filters: _filters,
+            include: ['stops'],
+          );
+
+          if (mounted) {
+            setState(() {
+              _response = updatedResponse;
+              _isLoading = false;
+            });
+          }
+
+          if (kDebugMode) {
+            print('BusSchedulesListPage._loadSchedules: lista atualizada com ${updatedResponse.data.length} itens');
+          }
+        } catch (syncError) {
+          // Erro na sincronização não é fatal - continuar com cache vazio
+          if (kDebugMode) {
+            print('BusSchedulesListPage._loadSchedules: erro ao sincronizar!');
+            print('  erro: $syncError');
+            print('  continuando com cache vazio');
+          }
+
+          if (mounted) {
+            setState(() {
+              _response = response;
+              _isLoading = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Erro ao sincronizar: $syncError'),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      } else {
+        // Cache tem dados - usar direto (sincronização em background pode ser implementada depois)
+        if (mounted) {
+          setState(() {
+            _response = response;
+            _isLoading = false;
+          });
+        }
+
+        if (kDebugMode) {
+          print('BusSchedulesListPage._loadSchedules: usando dados do cache (sync em background opcional)');
+        }
       }
     } catch (e) {
+      if (kDebugMode) {
+        print('BusSchedulesListPage._loadSchedules: ERRO ao carregar!');
+        print('  erro: $e');
+      }
+
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -223,6 +318,64 @@ class _BusSchedulesListPageState extends State<BusSchedulesListPage> {
     );
   }
 
+  /// Método para RefreshIndicator - sincroniza com Supabase
+  ///
+  /// **Propósito:** Permitir ao usuário puxar para baixo e forçar sincronização
+  /// **Comportamento:** Sempre executa sync, mesmo que cache tenha dados
+  /// **UX:** Mostra loading durante a sincronização
+  Future<void> _handleRefresh() async {
+    if (kDebugMode) {
+      print('BusSchedulesListPage._handleRefresh: sincronização manual iniciada');
+    }
+
+    try {
+      // Construir instâncias (deve vir do service locator em produção)
+      final remoteApi = SupabaseBusSchedulesRemoteDatasource();
+      final repository = BusSchedulesRepositoryImpl(
+        remoteApi: remoteApi,
+        localDao: _dao,
+      );
+
+      // Sincronizar com timeout
+      final synced = await repository.syncFromServer().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          if (kDebugMode) {
+            print('BusSchedulesListPage._handleRefresh: TIMEOUT na sincronização');
+          }
+          throw Exception('Timeout ao sincronizar');
+        },
+      );
+
+      if (kDebugMode) {
+        print('BusSchedulesListPage._handleRefresh: sincronizados $synced agendamentos');
+      }
+
+      // Recarregar lista
+      await _loadSchedules();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sincronizados $synced agendamentos')),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('BusSchedulesListPage._handleRefresh: erro!');
+        print('  erro: $e');
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao sincronizar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -246,81 +399,102 @@ class _BusSchedulesListPageState extends State<BusSchedulesListPage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _response == null || _response!.data.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+      body: RefreshIndicator(
+        onRefresh: _handleRefresh,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _response == null || _response!.data.isEmpty
+                ? ListView(
+                    // ⚠️ IMPORTANTE: AlwaysScrollableScrollPhysics permite pull-to-refresh
+                    // mesmo sem items na lista. Sem isso, o usuário não consegue puxar
+                    // para sincronizar quando a lista está vazia!
+                    physics: const AlwaysScrollableScrollPhysics(),
                     children: [
-                      Icon(
-                        Icons.schedule,
-                        size: 80,
-                        color: Colors.grey[400],
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.schedule,
+                                size: 80,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Nenhum horário encontrado',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Puxe para sincronizar dados do servidor',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 16),
+                              TextButton(
+                                onPressed: _showFilterDialog,
+                                child: const Text('Ajustar filtros'),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Nenhum horário encontrado',
-                        style: Theme.of(context).textTheme.titleMedium,
+                    ],
+                  )
+                : Column(
+                    children: [
+                      if (_filters.hasFilters)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.filter_alt, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Filtros ativos',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() => _filters = BusScheduleFilters());
+                                  _loadSchedules();
+                                },
+                                child: const Text('Limpar'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Text(
+                          'Total: ${_response!.meta.total} horários',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: _showFilterDialog,
-                        child: const Text('Ajustar filtros'),
+                      Expanded(
+                        child: ListView.builder(
+                          // AlwaysScrollableScrollPhysics também aqui para consistência
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: _response!.data.length,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          itemBuilder: (context, index) {
+                            final schedule = _response!.data[index];
+                            return _BusScheduleCard(
+                              schedule: schedule,
+                              onLongPress: () => _showActionsDialog(schedule),
+                              onEdit: (scheduleModel) =>
+                                  _handleEditSchedule(scheduleModel),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
-                )
-              : Column(
-                  children: [
-                    if (_filters.hasFilters)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.filter_alt, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Filtros ativos',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                setState(() => _filters = BusScheduleFilters());
-                                _loadSchedules();
-                              },
-                              child: const Text('Limpar'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Text(
-                        'Total: ${_response!.meta.total} horários',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: _response!.data.length,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        itemBuilder: (context, index) {
-                          final schedule = _response!.data[index];
-                          return _BusScheduleCard(
-                            schedule: schedule,
-                            onLongPress: () => _showActionsDialog(schedule),
-                            onEdit: (scheduleModel) =>
-                                _handleEditSchedule(scheduleModel),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+      ),
     );
   }
 }
