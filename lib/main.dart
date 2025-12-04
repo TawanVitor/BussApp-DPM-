@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:bussv1/core/theme/app_theme.dart';
+import 'package:bussv1/core/config/env_config.dart';
 import 'package:bussv1/features/onboarding/presentation/pages/onboarding_flow.dart';
 import 'package:bussv1/features/settings/data/models/user_settings_model.dart';
 
@@ -9,6 +11,24 @@ import 'features/settings/domain/entities/user_settings.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 🔐 Carregar variáveis de ambiente (.env)
+  await dotenv.load(fileName: ".env");
+  
+  // ✅ Validar configuração do Supabase
+  if (!EnvConfig.isValid()) {
+    print('❌ ERRO: Configuração do Supabase inválida!');
+    print(EnvConfig.summary());
+    // Continua mesmo assim (com logs de erro)
+  } else {
+    print('✅ Configuração do Supabase válida!');
+  }
+  
+  // 📋 Exibir resumo de configuração em modo debug
+  if (EnvConfig.debugMode) {
+    print(EnvConfig.summary());
+  }
+  
   final settings = await UserSettingsModel.load();
   
   // Adicionar dados de exemplo se necessário
