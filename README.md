@@ -150,7 +150,9 @@ dependencies:
 ### Arquitetura
 - **Stateful Widgets** - Gerenciamento de estado
 - **MVC Pattern** - Separação de responsabilidades
-- **Clean Architecture** - Organização modular
+- **Clean Architecture** - Organização modular com 3 camadas (Presentation/Domain/Data)
+- **Repository Pattern** - Abstração de fontes de dados (local + remote)
+- **Incremental Sync** - Sincronização eficiente com Supabase
 
 ---
 
