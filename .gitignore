@@ -43,3 +43,20 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 🔐 Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+.env.backup
+
+# 🔑 API Keys and Credentials
+/lib/config/secrets/
+firebase-key.json
+google-services.json
+GoogleService-Info.plist
+
+# 📱 Local Development
+.firebase/
+.vscode/launch.json
+
