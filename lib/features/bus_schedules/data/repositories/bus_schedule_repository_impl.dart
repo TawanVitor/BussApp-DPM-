@@ -2,19 +2,26 @@ import 'package:bussv1/features/bus_schedules/domain/entities/bus_schedule.dart'
 import 'package:bussv1/features/bus_schedules/domain/entities/bus_schedule_filters.dart';
 import 'package:bussv1/features/bus_schedules/domain/entities/bus_schedule_list_response.dart';
 import 'package:bussv1/features/bus_schedules/domain/repositories/i_bus_schedule_repository.dart';
-import '../datasources/bus_schedules_local_dao.dart';
+import 'package:bussv1/features/bus_schedules/data/datasources/i_bus_schedules_local_datasource.dart';
+import 'package:bussv1/features/bus_schedules/data/datasources/i_bus_schedules_remote_datasource.dart';
+import 'package:bussv1/features/bus_schedules/data/mappers/bus_schedule_mapper.dart';
+
 import '../models/bus_schedule_model.dart';
 
 class BusScheduleRepositoryImpl implements IBusScheduleRepository {
-  final BusSchedulesLocalDao _localDao;
+  final IBusSchedulesLocalDatasource _localDatasource;
+  final IBusSchedulesRemoteDatasource? _remoteDatasource;
 
-  BusScheduleRepositoryImpl({required BusSchedulesLocalDao localDao})
-      : _localDao = localDao;
+  BusScheduleRepositoryImpl({
+    required IBusSchedulesLocalDatasource localDatasource,
+    IBusSchedulesRemoteDatasource? remoteDatasource,
+  })  : _localDatasource = localDatasource,
+        _remoteDatasource = remoteDatasource;
 
   @override
   Future<List<BusSchedule>> loadFromCache() async {
     try {
-      final response = await _localDao.listAll(pageSize: 1000);
+      final response = await _localDatasource.listAll(pageSize: 1000);
       return response.data;
     } catch (e) {
       print('Erro ao carregar cache: $e');
@@ -24,9 +31,26 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
 
   @override
   Future<int> syncFromServer() async {
-    // TODO: Implementar sincronização com servidor remoto
-    // Por enquanto retorna 0 (sem sincronização)
-    return 0;
+    try {
+      if (_remoteDatasource == null) return 0;
+      
+      // PUSH: enviar local para remoto
+      final localResponse = await _localDatasource.listAll(pageSize: 10000);
+      final localModels = BusScheduleMapper.toModelList(localResponse.data);
+      await _remoteDatasource.upsertBusSchedules(localModels);
+      
+      // PULL: buscar remoto
+      final remoteModels = await _remoteDatasource.fetchAll();
+      final remoteEntities = BusScheduleMapper.toEntityList(remoteModels);
+      
+      // Aplicar ao cache
+      final upserted = await upsertAll(remoteEntities);
+      
+      return upserted.length;
+    } catch (e) {
+      print('Erro ao sincronizar: $e');
+      return 0;
+    }
   }
 
   @override
@@ -36,7 +60,7 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
     int pageNumber = 1,
   }) async {
     try {
-      return await _localDao.listAll(
+      return await _localDatasource.listAll(
         filters: filters,
         pageSize: pageSize,
         page: pageNumber,
@@ -60,7 +84,7 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
   @override
   Future<List<BusSchedule>> listFeatured() async {
     try {
-      final response = await _localDao.listAll(pageSize: 10);
+      final response = await _localDatasource.listAll(pageSize: 10);
       // Filtrar por agendamentos destacados (ex: mais populares)
       return response.data.take(5).toList();
     } catch (e) {
@@ -72,7 +96,7 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
   @override
   Future<BusSchedule?> getById(String id) async {
     try {
-      final response = await _localDao.listAll(pageSize: 1000);
+      final response = await _localDatasource.listAll(pageSize: 1000);
       return response.data.firstWhere(
         (schedule) => schedule.id == id,
         orElse: () => throw Exception('Não encontrado'),
@@ -86,7 +110,7 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
   @override
   Future<List<BusSchedule>> search(String query, {int limit = 50}) async {
     try {
-      final response = await _localDao.listAll(pageSize: limit);
+      final response = await _localDatasource.listAll(pageSize: limit);
       final queryLower = query.toLowerCase();
       return response.data
           .where((schedule) =>
@@ -123,8 +147,8 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
         accessibility: schedule.accessibility,
         fare: schedule.fare,
       );
-      await _localDao.upsertAll([model]);
-      return model;
+      await (_localDatasource as dynamic).upsertAll([model]);
+      return BusScheduleMapper.toEntity(model);
     } catch (e) {
       throw Exception('Erro ao criar agendamento: $e');
     }
@@ -153,8 +177,8 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
         accessibility: schedule.accessibility,
         fare: schedule.fare,
       );
-      await _localDao.upsertAll([model]);
-      return model;
+      await (_localDatasource as dynamic).upsertAll([model]);
+      return BusScheduleMapper.toEntity(model);
     } catch (e) {
       throw Exception('Erro ao atualizar agendamento: $e');
     }
@@ -163,11 +187,12 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
   @override
   Future<bool> delete(String id) async {
     try {
-      final response = await _localDao.listAll(pageSize: 10000);
+      final response = await _localDatasource.listAll(pageSize: 10000);
       final filtered = response.data.where((s) => s.id != id).toList();
-      await _localDao.clear();
+      await (_localDatasource as dynamic).clear();
       if (filtered.isNotEmpty) {
-        await _localDao.upsertAll(filtered);
+        final models = BusScheduleMapper.toModelList(filtered);
+        await (_localDatasource as dynamic).upsertAll(models);
       }
       return true;
     } catch (e) {
@@ -179,30 +204,9 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
   @override
   Future<List<BusSchedule>> upsertAll(List<BusSchedule> schedules) async {
     try {
-      final models = schedules
-          .map((s) => BusScheduleModel(
-                id: s.id,
-                routeName: s.routeName,
-                destination: s.destination,
-                departureTime: s.departureTime,
-                status: s.status,
-                createdAt: s.createdAt,
-                updatedAt: DateTime.now(),
-                routeNumber: s.routeNumber,
-                origin: s.origin,
-                arrivalTime: s.arrivalTime,
-                distanceKm: s.distanceKm,
-                durationMinutes: s.durationMinutes,
-                imageUrl: s.imageUrl,
-                stops: s.stops,
-                frequencyMinutes: s.frequencyMinutes,
-                operatingDays: s.operatingDays,
-                accessibility: s.accessibility,
-                fare: s.fare,
-              ))
-          .toList();
-      await _localDao.upsertAll(models);
-      return models;
+      final models = BusScheduleMapper.toModelList(schedules);
+      await (_localDatasource as dynamic).upsertAll(models);
+      return schedules;
     } catch (e) {
       throw Exception('Erro ao fazer upsert: $e');
     }
@@ -211,7 +215,7 @@ class BusScheduleRepositoryImpl implements IBusScheduleRepository {
   @override
   Future<bool> clear() async {
     try {
-      await _localDao.clear();
+      await (_localDatasource as dynamic).clear();
       return true;
     } catch (e) {
       print('Erro ao limpar: $e');

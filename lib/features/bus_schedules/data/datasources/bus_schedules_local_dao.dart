@@ -4,8 +4,9 @@ import '../../domain/entities/bus_schedule.dart';
 import '../../domain/entities/bus_schedule_filters.dart';
 import '../../domain/entities/bus_schedule_list_response.dart';
 import '../models/bus_schedule_model.dart';
+import 'i_bus_schedules_local_datasource.dart';
 
-class BusSchedulesLocalDao {
+class BusSchedulesLocalDao implements IBusSchedulesLocalDatasource {
   static const String _storageKey = 'bus_schedules_v1';
   static const int _defaultPage = 1;
   static const int _defaultPageSize = 20;
@@ -317,4 +318,169 @@ class BusSchedulesLocalDao {
       rethrow;
     }
   }
+
+  @override
+  Future<BusSchedule?> getById(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_storageKey);
+
+      if (jsonStr == null || jsonStr.isEmpty) {
+        return null;
+      }
+
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final schedulesList = data['schedules'] as List? ?? [];
+      
+      final schedule = schedulesList
+          .map((json) => BusScheduleModel.fromJson(json))
+          .firstWhere(
+            (s) => s.id == id,
+            orElse: () => null as dynamic,
+          );
+      
+      return schedule;
+    } catch (e) {
+      print('Erro ao buscar por ID: $e');
+      return null;
+    }
+  }
+
+  @override
+  Future<BusSchedule> create(BusSchedule entity) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_storageKey);
+
+      List<dynamic> schedulesList = [];
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+        schedulesList = data['schedules'] as List? ?? [];
+      }
+
+      final newModel = {
+        'id': entity.id,
+        'routeName': entity.routeName,
+        'destination': entity.destination,
+        'departureTime': entity.departureTime,
+        'arrivalTime': entity.arrivalTime,
+        'status': entity.status,
+        'createdAt': entity.createdAt.toIso8601String(),
+        'updatedAt': entity.updatedAt.toIso8601String(),
+        'routeNumber': entity.routeNumber,
+        'origin': entity.origin,
+        'distanceKm': entity.distanceKm,
+        'durationMinutes': entity.durationMinutes,
+        'imageUrl': entity.imageUrl,
+        'stops': entity.stops,
+        'frequencyMinutes': entity.frequencyMinutes,
+        'operatingDays': entity.operatingDays,
+        'accessibility': entity.accessibility,
+        'fare': entity.fare,
+      };
+
+      schedulesList.add(newModel);
+
+      final dataToSave = {
+        'schedules': schedulesList,
+        'lastSync': DateTime.now().toIso8601String(),
+      };
+
+      await prefs.setString(_storageKey, jsonEncode(dataToSave));
+
+      return entity;
+    } catch (e) {
+      print('Erro ao criar agendamento: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<BusSchedule> update(BusSchedule entity) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_storageKey);
+
+      if (jsonStr == null || jsonStr.isEmpty) {
+        throw Exception('Nenhum agendamento para atualizar');
+      }
+
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final schedulesList = data['schedules'] as List? ?? [];
+
+      final index = schedulesList.indexWhere((json) => json['id'] == entity.id);
+
+      if (index == -1) {
+        throw Exception('Agendamento não encontrado');
+      }
+
+      schedulesList[index] = {
+        'id': entity.id,
+        'routeName': entity.routeName,
+        'destination': entity.destination,
+        'departureTime': entity.departureTime,
+        'arrivalTime': entity.arrivalTime,
+        'status': entity.status,
+        'createdAt': entity.createdAt.toIso8601String(),
+        'updatedAt': entity.updatedAt.toIso8601String(),
+        'routeNumber': entity.routeNumber,
+        'origin': entity.origin,
+        'distanceKm': entity.distanceKm,
+        'durationMinutes': entity.durationMinutes,
+        'imageUrl': entity.imageUrl,
+        'stops': entity.stops,
+        'frequencyMinutes': entity.frequencyMinutes,
+        'operatingDays': entity.operatingDays,
+        'accessibility': entity.accessibility,
+        'fare': entity.fare,
+      };
+
+      final dataToSave = {
+        'schedules': schedulesList,
+        'lastSync': DateTime.now().toIso8601String(),
+      };
+
+      await prefs.setString(_storageKey, jsonEncode(dataToSave));
+
+      return entity;
+    } catch (e) {
+      print('Erro ao atualizar agendamento: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<bool> delete(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString(_storageKey);
+
+      if (jsonStr == null || jsonStr.isEmpty) {
+        return false;
+      }
+
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final schedulesList = data['schedules'] as List? ?? [];
+
+      final initialLength = schedulesList.length;
+      schedulesList.removeWhere((json) => json['id'] == id);
+
+      if (schedulesList.length == initialLength) {
+        return false;
+      }
+
+      final dataToSave = {
+        'schedules': schedulesList,
+        'lastSync': DateTime.now().toIso8601String(),
+      };
+
+      await prefs.setString(_storageKey, jsonEncode(dataToSave));
+
+      return true;
+    } catch (e) {
+      print('Erro ao deletar agendamento: $e');
+      rethrow;
+    }
+  }
+
 }
