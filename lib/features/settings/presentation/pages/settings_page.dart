@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bussv1/features/settings/domain/entities/user_settings.dart';
 import 'package:bussv1/features/settings/data/models/user_settings_model.dart';
+import 'package:bussv1/features/settings/data/services/profile_image_service.dart';
+import 'package:bussv1/features/settings/presentation/widgets/user_profile_card.dart';
 import 'accessibility_page.dart';
 import 'package:bussv1/features/onboarding/presentation/pages/policy_viewer_screen.dart';
 
@@ -35,47 +37,168 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   @override
+  void didUpdateWidget(SettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Atualiza o nome se mudar
+    if (oldWidget.settings.name != widget.settings.name) {
+      _nameController.text = widget.settings.name;
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
   }
 
+  /// Constrói o avatar de perfil com validação
+  Widget _buildProfileAvatar(double radius) {
+    final photoPath = widget.settings.photoPath;
+    
+    // Se não tem foto, mostra ícone padrão
+    if (photoPath == null || photoPath.isEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(51),
+        child: Icon(
+          Icons.person,
+          size: radius * 1.5,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      );
+    }
+
+    // Verifica se o arquivo existe
+    final file = File(photoPath);
+    if (!file.existsSync()) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Theme.of(context).colorScheme.errorContainer,
+        child: Icon(
+          Icons.broken_image,
+          size: radius * 1.5,
+          color: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+
+    // Tenta carregar a imagem
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(51),
+      backgroundImage: FileImage(file),
+      onBackgroundImageError: (exception, stackTrace) {
+        debugPrint('Erro ao carregar imagem: $exception');
+      },
+    );
+  }
+
   Future<void> _pickImage() async {
     try {
-      final image = await _imagePicker.pickImage(source: ImageSource.gallery);
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      
       if (image != null) {
+        // Salva a imagem no diretório seguro da app
+        final savedImagePath = await ProfileImageService.saveProfileImage(image.path);
+        
+        if (savedImagePath == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Erro ao salvar imagem')),
+            );
+          }
+          return;
+        }
+
+        // Cria novo objeto de settings com a imagem
         final newSettings = UserSettingsModel(
-          name: _nameController.text,
-          photoPath: image.path,
+          name: _nameController.text.isNotEmpty 
+              ? _nameController.text 
+              : widget.settings.name,
+          photoPath: savedImagePath,
           isDarkMode: widget.settings.isDarkMode,
           textSize: widget.settings.textSize,
           useHighContrast: widget.settings.useHighContrast,
         );
-        widget.onSettingsChanged(newSettings as UserSettings);
+        
+        // Salva as configurações
         await newSettings.save();
+        
+        // Notifica a mudança
+        widget.onSettingsChanged(newSettings);
+        
         if (mounted) {
-          Navigator.pop(context);
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✓ Foto de perfil atualizada com sucesso!'),
+              duration: Duration(seconds: 2),
+            ),
+          );
         }
       }
     } catch (e) {
+      debugPrint('Erro ao selecionar imagem: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao selecionar imagem')),
+          SnackBar(
+            content: Text('Erro ao selecionar imagem: $e'),
+            duration: const Duration(seconds: 3),
+          ),
         );
       }
     }
   }
 
-  void _updateName(String value) async {
-    final newSettings = UserSettingsModel(
-      name: value,
-      photoPath: widget.settings.photoPath,
-      isDarkMode: widget.settings.isDarkMode,
-      textSize: widget.settings.textSize,
-      useHighContrast: widget.settings.useHighContrast,
-    );
-    widget.onSettingsChanged(newSettings as UserSettings);
-    await newSettings.save();
+  Future<void> _saveName(String newName) async {
+    try {
+      if (newName.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Digite um nome válido'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+
+      final trimmedName = newName.trim();
+      
+      final newSettings = UserSettingsModel(
+        name: trimmedName,
+        photoPath: widget.settings.photoPath,
+        isDarkMode: widget.settings.isDarkMode,
+        textSize: widget.settings.textSize,
+        useHighContrast: widget.settings.useHighContrast,
+      );
+      
+      await newSettings.save();
+      widget.onSettingsChanged(newSettings);
+      
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✓ Nome salvo: $trimmedName'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        debugPrint('✓ Nome atualizado: $trimmedName');
+      }
+    } catch (e) {
+      debugPrint('Erro ao atualizar nome: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao atualizar nome: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _showProfileDialog(BuildContext context) async {
@@ -90,15 +213,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Stack(
                 alignment: Alignment.bottomRight,
                 children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundImage: widget.settings.photoPath != null
-                        ? FileImage(File(widget.settings.photoPath!))
-                        : null,
-                    child: widget.settings.photoPath == null
-                        ? const Icon(Icons.person, size: 50)
-                        : null,
-                  ),
+                  _buildProfileAvatar(50),
                   Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primary,
@@ -117,8 +232,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 decoration: const InputDecoration(
                   labelText: 'Nome',
                   border: OutlineInputBorder(),
+                  hintText: 'Digite seu nome',
                 ),
-                onChanged: _updateName,
               ),
             ],
           ),
@@ -126,7 +241,14 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Fechar'),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              _saveName(_nameController.text);
+              Navigator.pop(context);
+            },
+            child: const Text('Salvar'),
           ),
         ],
       ),
@@ -151,29 +273,13 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(16),
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundImage: widget.settings.photoPath != null
-                      ? FileImage(File(widget.settings.photoPath!))
-                      : null,
-                  child: widget.settings.photoPath == null
-                      ? const Icon(Icons.person, size: 50)
-                      : null,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.settings.name,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ],
-            ),
+          UserProfileCard(
+            settings: widget.settings,
+            onEditProfile: () => _showProfileDialog(context),
           ),
+          const SizedBox(height: 16),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.person),

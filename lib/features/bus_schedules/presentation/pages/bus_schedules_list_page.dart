@@ -380,7 +380,7 @@ class _BusSchedulesListPageState extends State<BusSchedulesListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Horários de Ônibus'),
+        title: const Text('Ônibus na Região'),
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),

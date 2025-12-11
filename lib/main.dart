@@ -91,9 +91,17 @@ class _BussAppState extends State<BussApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Buss',
-      theme: AppTheme.lightTheme(),
-      darkTheme: AppTheme.darkTheme(),
+      theme: AppTheme.lightTheme(useHighContrast: _settings.useHighContrast),
+      darkTheme: AppTheme.darkTheme(useHighContrast: _settings.useHighContrast),
       themeMode: _themeMode,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaleFactor: _settings.textSize,
+          ),
+          child: child!,
+        );
+      },
       home: OnboardingFlow(
         onThemeToggle: _toggleTheme,
         themeMode: _themeMode,
