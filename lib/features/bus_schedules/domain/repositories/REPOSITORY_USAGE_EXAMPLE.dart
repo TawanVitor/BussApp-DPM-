@@ -8,18 +8,25 @@ import 'package:flutter/material.dart';
 import 'package:bussv1/features/bus_schedules/domain/repositories/i_bus_schedule_repository.dart';
 import 'package:bussv1/features/bus_schedules/data/repositories/bus_schedule_repository_impl.dart';
 import 'package:bussv1/features/bus_schedules/data/datasources/bus_schedules_local_dao.dart';
+import 'package:bussv1/features/bus_schedules/data/datasources/supabase_bus_schedules_remote_datasource.dart';
 
 /// ============================================================================
 /// 1. SETUP INICIAL (main.dart ou service_locator.dart)
 /// ============================================================================
 
 void setupBusScheduleRepository() {
-  // Criar instância do DAO
-  final localDao = BusSchedulesLocalDao();
+  // Criar instância do DAO local
+  final localDatasource = BusSchedulesLocalDao();
+
+  // Criar instância do datasource remoto
+  final remoteDatasource = SupabaseBusSchedulesRemoteDatasource(null);
 
   // Criar instância do repositório
   final IBusScheduleRepository repository = 
-      BusScheduleRepositoryImpl(localDao: localDao);
+      BusScheduleRepositoryImpl(
+        localDatasource: localDatasource,
+        remoteDatasource: remoteDatasource,
+      );
 
   // Se usar GetIt ou similar, registrar como singleton:
   // getIt.registerSingleton<IBusScheduleRepository>(repository);

@@ -1,9 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import '../../domain/entities/provider.dart';
 import '../models/provider_model.dart';
-import '../mappers/provider_mapper.dart';
-import 'i_providers_local_datasource.dart';
 
 /// 💾 Interface para acesso a dados locais de Providers
 ///
